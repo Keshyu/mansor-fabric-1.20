@@ -1,0 +1,45 @@
+{
+	"schemaVersion": 1,
+	"id": "mansor",
+	"version": "1.0.0",
+	"name": "Minecraft Mansor",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Keshyu"
+	],
+	"contact": {
+		"homepage": "",
+		"sources": ""
+	},
+	"license": "GNU GPLv3",
+	"icon": "assets/mansor/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.icloud.keshyu.MansorMod"
+		],
+		"client": [
+			"com.icloud.keshyu.MansorModClient"
+		],
+		"fabric-datagen": [
+			"com.icloud.keshyu.datagen.MansorDataGeneration"
+		]
+	},
+	"mixins": [
+		"mansor.mixins.json",
+		{
+			"config": "mansor.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"accesswidener": "mansor.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.14.21",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}

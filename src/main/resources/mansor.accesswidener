@@ -1,0 +1,2 @@
+accessWidener v2 named
+accessible method net/minecraft/block/CropBlock getAvailableMoisture (Lnet/minecraft/block/Block;Lnet/minecraft/world/BlockView;Lnet/minecraft/util/math/BlockPos;)F
