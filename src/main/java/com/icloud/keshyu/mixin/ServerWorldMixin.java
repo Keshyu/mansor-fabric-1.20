@@ -1,10 +1,8 @@
 package com.icloud.keshyu.mixin;
 
 import com.icloud.keshyu.MansorChunk;
-import com.icloud.keshyu.MansorMod;
 import net.minecraft.block.Block;
 import net.minecraft.block.CropBlock;
-import net.minecraft.block.FarmlandBlock;
 import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -25,7 +23,15 @@ import java.util.function.Supplier;
 
 @Mixin(ServerWorld.class)
 public abstract class ServerWorldMixin extends World {
-    protected ServerWorldMixin(MutableWorldProperties properties, RegistryKey<World> registryRef, DynamicRegistryManager registryManager, RegistryEntry<DimensionType> dimensionEntry, Supplier<Profiler> profiler, boolean isClient, boolean debugWorld, long biomeAccess, int maxChainedNeighborUpdates) {
+    protected ServerWorldMixin(MutableWorldProperties properties,
+                               RegistryKey<World> registryRef,
+                               DynamicRegistryManager registryManager,
+                               RegistryEntry<DimensionType> dimensionEntry,
+                               Supplier<Profiler> profiler,
+                               boolean isClient,
+                               boolean debugWorld,
+                               long biomeAccess,
+                               int maxChainedNeighborUpdates) {
         super(properties, registryRef, registryManager, dimensionEntry, profiler, isClient, debugWorld, biomeAccess, maxChainedNeighborUpdates);
     }
 
@@ -33,43 +39,36 @@ public abstract class ServerWorldMixin extends World {
     public void tickChunk(WorldChunk chunk, int randomTickSpeed, CallbackInfo ci) {
         final var mansorChunk = (MansorChunk) chunk;
 
-        if (mansorChunk.mansor$getIsFirstTick() && mansorChunk.mansor$getLastUnloadTime() != 0) {
-            mansorChunk.mansor$setIsFirstTick(false);
+        if (mansorChunk.mansor$getLastUnloadTime() != 0 && randomTickSpeed > 0) {
+            final long unloadDuration = getTime() - mansorChunk.mansor$getLastUnloadTime();
+            final double ticksPerBlock = unloadDuration * (long) randomTickSpeed / (16d * 16d * 16d);
+            final var sections = chunk.getSectionArray();
 
-            final var unloadDuration = getTime() - mansorChunk.mansor$getLastUnloadTime();
+            for (var s = 0; s < sections.length; s++) {
+                final var chunkSection = sections[s];
+                if (!chunkSection.hasRandomTicks()) continue;
+                final var sectionBottom = ChunkSectionPos.getBlockCoord(chunk.sectionIndexToCoord(s));
 
-            if (randomTickSpeed > 0) {
-                final var ticksPerBlock = unloadDuration * randomTickSpeed / (16 * 16 * 16);
-                var sections = chunk.getSectionArray();
+                for (var i = 0; i < 16; i++) for (var j = 0; j < 16; j++) for (var k = 0; k < 16; k++) {
+                    final var blockState = chunkSection.getBlockState(i, j, k);
+                    if (!blockState.hasRandomTicks()) { continue; }
+                    final var block = blockState.getBlock();
 
-                for (var s = 0; s < sections.length; s++) {
-                    var chunkSection = sections[s];
-                    if (!chunkSection.hasRandomTicks()) continue;
-                    final var sectionBottom = ChunkSectionPos.getBlockCoord(chunk.sectionIndexToCoord(s));
-
-                    for (var i = 0; i < 16; i++) for (var j = 0; j < 16; j++) for (var k = 0; k < 16; k++) {
-                        var blockState = chunkSection.getBlockState(i, j, k);
-
-                        if (blockState.hasRandomTicks()) {
-                            var block = blockState.getBlock();
-
-                            if (block instanceof CropBlock crop) {
-                                final int age = crop.getAge(blockState);
-                                final var x = chunk.getPos().getOffsetX(i);
-                                final var z = chunk.getPos().getOffsetZ(k);
-                                final var y = sectionBottom + j;
-                                final var blockPos = new BlockPos(x, y, z);
-                                // FIXME: Take into account night-time
-                                final var growthPerTick =
-                                        1 / (25 / CropBlock.getAvailableMoisture(block, this, blockPos) + 1);
-                                final var growth = (int) Math.floor(ticksPerBlock * growthPerTick);
-                                MansorMod.LOGGER.info("Growth[" + blockPos + "]: " + growth);
-                                setBlockState(
-                                        blockPos,
-                                        crop.withAge(Math.min(age + growth, crop.getMaxAge())),
-                                        Block.NOTIFY_LISTENERS);
-                            }
-                        }
+                    if (block instanceof CropBlock crop) {
+                        final int age = crop.getAge(blockState);
+                        final var blockPos = new BlockPos(
+                                chunk.getPos().getOffsetX(i),
+                                sectionBottom + j,
+                                chunk.getPos().getOffsetZ(k));
+                        // FIXME: Shouldn't grow in insufficient light
+                        final double growthPerTick = (double) CropBlock.getAvailableMoisture(block, this, blockPos) / 25d;
+                        final var growth = (int) Math.floor(ticksPerBlock * growthPerTick);
+//                        MansorMod.LOGGER.info("Growth[{}]: {}", blockPos, growth);
+//                        MansorMod.LOGGER.info("Growth[{}]: {} * {}", blockPos, ticksPerBlock, growthPerTick);
+                        setBlockState(
+                                blockPos,
+                                crop.withAge(Math.min(age + growth, crop.getMaxAge())),
+                                Block.NOTIFY_LISTENERS);
                     }
                 }
             }
